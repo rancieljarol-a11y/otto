@@ -607,3 +607,44 @@ router.post('/api/auth/login', async (req, res) => {
     res.status(500).json({ error: 'Error del servidor' });
   }
 });
+
+// ============================================================================
+// TEST: Probar AI Service directamente
+// ============================================================================
+
+router.get('/api/test/ai', async (req, res) => {
+  const { mensaje } = req.query;
+  const negocioId = req.headers['x-negocio-id'] || '4e95adf6-b979-4f82-a711-86c07e872bf2';
+  
+  if (!mensaje) {
+    return res.json({ 
+      error: 'Falta parametro: mensaje',
+      ejemplo: '/api/test/ai?mensaje=hola'
+    });
+  }
+
+  try {
+    // Obtener negocio
+    const negocioResult = await config.db.query(
+      'SELECT * FROM negocios WHERE id = $1',
+      [negocioId]
+    );
+    
+    const negocio = negocioResult.rows[0];
+    
+    const resultado = await AIService.procesarMensaje(mensaje, {
+      negocio,
+      cliente: null
+    });
+    
+    res.json({
+      mensaje,
+      nivel: resultado.nivel,
+      tipo: resultado.tipo,
+      respuesta: resultado.respuesta
+    });
+  } catch (err) {
+    console.error('Test AI error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});

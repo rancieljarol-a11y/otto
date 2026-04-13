@@ -1,52 +1,41 @@
 // OttO - AI Service (Niveles 1-4)
-// Pyramide: Reglas > NLP ligero > IA local > IA cloud
+// Version completa SIN APIs externas
+//later se puede agregar Ollama o DeepSeek
 
-const config = require('../config');
+const db = require('../config/database');
 
 class AIService {
-  // NIVEL 1: Reglas puras (60% de mensajes)
-  // Menús, confirmaciones, consultas DB, alertas
-  static async nivel1Reglas(mensaje, contexto) {
-    const { negocio, cliente, conversacion } = contexto;
+  // MAIN: Procesar mensaje entrante
+  static async procesarMensaje(mensaje, contexto) {
     const msgLower = mensaje.toLowerCase().trim();
+    
+    // Nivel 1: Reglas puras (优先)
+    const respuestaN1 = await this.nivel1Reglas(msgLower, contexto);
+    if (respuestaN1) return respuestaN1;
 
-    // Menú / Catalogo
-    if (this.esConsultaMenu(msgLower)) {
-      return {
-        nivel: 1,
-        tipo: 'menu',
-        respuesta: await this.generarMenuHTML(negocio)
-      };
-    }
+    // Nivel 2: Patrones simples
+    const respuestaN2 = await this.nivel2NLP(msgLower, contexto);
+    if (respuestaN2) return respuestaN2;
 
-    // Estado de pedido
-    if (this.esConsultaPedido(msgLower)) {
-      return {
-        nivel: 1,
-        tipo: 'consulta_pedido',
-        respuesta: await this.consultarEstadoPedido(msgLower, negocio.id)
-      };
-    }
+    // Nivel 3: Busqueda en productos
+    const respuestaN3 = await this.nivel3Productos(msgLower, contexto);
+    if (respuestaN3) return respuestaN3;
 
-    // Horario
-    if (this.esConsultaHorario(msgLower)) {
-      return {
-        nivel: 1,
-        tipo: 'horario',
-        respuesta: this.generarHorarioRespuesta(negocio)
-      };
-    }
+    // Nivel 4: No entiendo
+    return {
+      nivel: 4,
+      tipo: 'no_entiendo',
+      respuesta: this.generarNoEntiendo(contexto)
+    };
+  }
 
-    // Confirmar pedido
-    if (this.esConfirmacion(msgLower)) {
-      return {
-        nivel: 1,
-        tipo: 'confirmacion',
-        respuesta: await this.procesarConfirmacion(mensaje, negocio.id)
-      };
-    }
+  // ============================================================================
+  // NIVEL 1: Reglas puras (60% de mensajes)
+  // ============================================================================
+  static async nivel1Reglas(msgLower, contexto) {
+    const { negocio, cliente } = contexto;
 
-    // Saludo
+    // SALUDOS
     if (this.esSaludo(msgLower)) {
       return {
         nivel: 1,
@@ -55,348 +44,272 @@ class AIService {
       };
     }
 
-    // Despedida
-    if (this.esDespedida(msgLower)) {
+    // CONSULTAS DE MENU
+    if (this.esConsultaMenu(msgLower)) {
       return {
         nivel: 1,
-        tipo: 'despedida',
-        respuesta: '¡Gracias por contactarnos! Que tengas un excelente día. 👋'
+        tipo: 'menu',
+        respuesta: await this.generarMenu(negocio.id)
       };
     }
 
-    return null; // No match en nivel 1
+    // CONSULTAS DE PRECIOS
+    if (this.esConsultaPrecio(msgLower)) {
+      return {
+        nivel: 1,
+        tipo: 'precios',
+        respuesta: await this.generarMenu(negocio.id)
+      };
+    }
+
+    // ESTADO DE PEDIDO
+    if (this.esConsultaPedido(msgLower)) {
+      return {
+        nivel: 1,
+        tipo: 'estado_pedido',
+        respuesta: await this.consultarEstadoPedido(msgLower, negocio.id)
+      };
+    }
+
+    // HORARIO
+    if (this.esConsultaHorario(msgLower)) {
+      return {
+        nivel: 1,
+        tipo: 'horario',
+        respuesta: this.generarHorario(negocio)
+      };
+    }
+
+    // UBICACION
+    if (this.esUbicacion(msgLower)) {
+      return {
+        nivel: 1,
+        tipo: 'ubicacion',
+        respuesta: this.generarUbicacion(negocio)
+      };
+    }
+
+    // CONFIRMAR PEDIDO
+    if (this.esConfirmacion(msgLower)) {
+      return {
+        nivel: 1,
+        tipo: 'confirmacion',
+        respuesta: '✅ Tu pedido ha sido confirmado. Te avisaremos cuando este listo para recoger o enviar. 🚀'
+      };
+    }
+
+    // CANCELAR
+    if (this.esCancelar(msgLower)) {
+      return {
+        nivel: 1,
+        tipo: 'cancelar',
+        respuesta: 'Entendido. Tu pedido ha sido cancelado. Si necesitas algo mas, escribenos. 👋'
+      };
+    }
+
+    return null;
   }
 
-  // NIVEL 2: NLP ligero sin IA (25% de mensajes)
-  // Palabras clave, patrones simples
-  static async nivel2NLP(mensaje, contexto) {
-    const msgLower = mensaje.toLowerCase();
-    
-    // Palabras clave comunes
-    const patrones = {
-      'reservar': 'reserva',
-      'reserva': 'reserva',
-      'reservación': 'reserva',
-      'reservacion': 'reserva',
-      'pedir': 'pedido',
-      'ordenar': 'pedido',
-      'comprar': 'pedido',
-      'delivery': 'pedido',
-      'para llevar': 'pedido',
-      'envío': 'pedido',
-      'envio': 'pedido',
-      'domicilio': 'pedido',
-      'ubicación': 'ubicacion',
-      'ubicacion': 'ubicacion',
-      'dirección': 'ubicacion',
-      'direccion': 'ubicacion',
-      'donde están': 'ubicacion',
-      'contacto': 'contacto',
-      'whatsapp': 'contacto',
-      'teléfono': 'contacto',
-      'telefono': 'contacto',
-      'precio': 'precios',
-      'cuánto': 'precios',
-      'cuanto': 'precios',
-      'cuesta': 'precios',
-      'promocion': 'promocion',
-      'promo': 'promocion',
-      'oferta': 'promocion',
-      'descuento': 'promocion',
-    };
+  // ============================================================================
+  // NIVEL 2: NLP ligero (25% de mensajes)
+  // ============================================================================
+  static async nivel2NLP(msgLower, contexto) {
+    const { negocio } = contexto;
 
-    for (const [palabra, tipo] of Object.entries(patrones)) {
-      if (msgLower.includes(palabra)) {
+    const patrones = [
+      { palabras: ['pedir', 'ordenar', 'comprar', 'quiero', 'necesito'], tipo: 'hacer_pedido' },
+      { palabras: ['domicilio', 'delivery', 'envio', 'enviar', 'a casa'], tipo: 'domicilio' },
+      { palabras: ['recoger', 'retiro', 'pasarlo a buscar', 'voy yo'], tipo: 'recoger' },
+      { palabras: ['pagar', 'pago', 'transferencia', 'efectivo'], tipo: 'pago' },
+      { palabras: ['gracias', 'thank'], tipo: 'agradecimiento' },
+    ];
+
+    for (const p of patrones) {
+      if (p.palabras.some(pal => msgLower.includes(pal))) {
         return {
           nivel: 2,
-          tipo,
-          intenciones: [tipo],
-          mensaje_original: mensaje
+          tipo: p.tipo,
+          respuesta: this.generarRespuestaPorTipo(p.tipo, negocio)
         };
       }
     }
 
-    // Detectar números de teléfono (posibles pedidos)
-    const telefonoMatch = mensaje.match(/\+?[0-9]{9,15}/);
-    if (telefonoMatch) {
-      return {
-        nivel: 2,
-        tipo: 'posible_contacto',
-        intentions: ['contacto'],
-        mensaje_original: mensaje
-      };
-    }
-
-    // Detectar cantidades (posible pedido)
-    const cantidadMatch = mensaje.match(/(\d+)\s*(unidades?|piesas?|uds?|copas?|vasos?|botellas?)/i);
-    if (cantidadMatch) {
-      return {
-        nivel: 2,
-        tipo: 'posible_pedido',
-        intentions: ['pedido'],
-        cantidad_detectada: cantidadMatch[1],
-        mensaje_original: mensaje
-      };
-    }
-
-    return null; // No match en nivel 2
+    return null;
   }
 
-  // NIVEL 3: IA local (12% de mensajes)
-  // Llama/Mistral para mensajes ambiguos
-  static async nivel3IALocal(mensaje, contexto) {
-    if (!config.localAI.enabled) return null;
-
+  // ============================================================================
+  // NIVEL 3: Busqueda en productos
+  // ============================================================================
+  static async nivel3Productos(msgLower, contexto) {
+    const { negocio } = contexto;
+    
     try {
-      const prompt = this.construirPrompt(mensaje, contexto);
-      
-      const response = await fetch(config.localAI.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: config.localAI.model,
-          prompt,
-          stream: false,
-        })
-      });
+      const result = await db.query(
+        `SELECT nombre, precio, descripcion FROM productos 
+         WHERE negocio_id = $1 AND activo = true AND (
+           LOWER(nombre) LIKE $2 OR LOWER(descripcion) LIKE $2
+         ) LIMIT 5`,
+        [negocio.id, `%${msgLower}%`]
+      );
 
-      const data = await response.json();
-      
-      return {
-        nivel: 3,
-        tipo: 'ia_local',
-        respuesta: data.response,
-        modelo: config.localAI.model
-      };
-    } catch (error) {
-      console.error('IA local error:', error);
-      return null;
-    }
-  }
-
-  // NIVEL 4: IA potente (3% de mensajes)
-  // Claude/GPT como último recurso
-  static async nivel4IAAvanzada(mensaje, contexto) {
-    if (!config.cloudAI.apiKey) return null;
-
-    try {
-      if (config.cloudAI.provider === 'anthropic') {
-        return await this.procesarClaude(mensaje, contexto);
-      } else {
-        return await this.procesarOpenAI(mensaje, contexto);
+      if (result.rows.length > 0) {
+        let respuesta = '📋 Estos son los productos que encontre:\n\n';
+        for (const p of result.rows) {
+          respuesta += `• ${p.nombre}: $${p.precio}\n`;
+        }
+        respuesta += '\n¿Queres pedir alguno? Solo decilo y te lo ago! 😊';
+        
+        return {
+          nivel: 3,
+          tipo: 'busqueda_productos',
+          respuesta
+        };
       }
-    } catch (error) {
-      console.error('IA cloud error:', error);
-      return null;
+    } catch (err) {
+      console.error('Error buscando productos:', err);
     }
+
+    return null;
   }
 
-  // Procesar mensaje completo (pirámide de decisión)
-  static async procesar(mensaje, contexto) {
-    // Intentar nivel 1: Reglas
-    let resultado = await this.nivel1Reglas(mensaje, contexto);
-    if (resultado) return resultado;
-
-    // Intentar nivel 2: NLP ligero
-    resultado = await this.nivel2NLP(mensaje, contexto);
-    if (resultado) return resultado;
-
-    // Intentar nivel 3: IA local
-    resultado = await this.nivel3IALocal(mensaje, contexto);
-    if (resultado) return resultado;
-
-    // Intentar nivel 4: IA cloud
-    resultado = await this.nivel4IAAvanzada(mensaje, contexto);
-    if (resultado) return resultado;
-
-    // Fallback: mensaje de no entendido
-    return {
-      nivel: 0,
-      tipo: 'no_entendido',
-      respuesta: 'No entendí tu mensaje. ¿Podrías ser más específico? Por ejemplo:\n- *Quiero ver el menú*\n- *Quiero hacer un pedido*\n- *Quiero hacer una reserva*'
-    };
+  // ============================================================================
+  // DETECTORES DE PATRONES
+  // ============================================================================
+  static esSaludo(msg) {
+    const saludos = ['hola', 'buenos', 'buenas', 'hello', 'hi', 'hey', 'que tal'];
+    return saludos.some(s => msg.includes(s));
   }
-
-  // ========== HELPERS ==========
 
   static esConsultaMenu(msg) {
-    const patrones = ['menú', 'menu', 'carta', 'productos', 'ver', 'catalogo', 'catálogo'];
-    return patrones.some(p => msg.includes(p));
+    const menu = ['menu', 'catalogo', 'productos', 'tienen', 'que venden'];
+    return menu.some(m => msg.includes(m));
+  }
+
+  static esConsultaPrecio(msg) {
+    const precio = ['precio', 'cuesta', 'cuanto', 'vale'];
+    return precio.some(p => msg.includes(p));
   }
 
   static esConsultaPedido(msg) {
-    const patrones = ['pedido', 'mi orden', 'mi pedido', 'estado', 'progreso', 'ya está', 'ya esta'];
-    return patrones.some(p => msg.includes(p));
+    const pedido = ['mi pedido', 'estado', 'ya esta', 'listo'];
+    return pedido.some(p => msg.includes(p));
   }
 
   static esConsultaHorario(msg) {
-    const patrones = ['horario', 'abierto', 'cerrado', 'hora', 'atencion', 'atención'];
-    return patrones.some(p => msg.includes(p));
+    return msg.includes('horario') || msg.includes('abren') || msg.includes('hora');
+  }
+
+  static esUbicacion(msg) {
+    return msg.includes('donde') || msg.includes('ubicacion') || msg.includes('direccion');
   }
 
   static esConfirmacion(msg) {
-    return msg === 'si' || msg === 'sí' || msg === 'si, ok' || msg === 'confirmo' || msg === 'confirmar';
+    return msg.includes('si') || msg.includes('ok') || msg.includes('confirmo');
   }
 
-  static esSaludo(msg) {
-    const saludos = ['hola', 'buenos', 'buenas', 'hey', 'hi', 'hello', 'que tal', 'qué tal', 'buen dia', 'buen día'];
-    return saludos.some(s => msg.startsWith(s));
+  static esCancelar(msg) {
+    return msg.includes('cancelar') || msg.includes('no quiero');
   }
 
-  static esDespedida(msg) {
-    const despedidas = ['gracias', 'chao', 'adios', 'adiós', 'nos vemos', 'hasta luego', 'bye'];
-    return despedidas.some(d => msg.includes(d));
+  // ============================================================================
+  // GENERADORES DE RESPUESTAS
+  // ============================================================================
+  static generarSaludo(negocio, cliente) {
+    const nombre = cliente?.nombre || 'amigo';
+    return `¡Hola ${nombre}! 👋\n\nBienvenido a *${negocio.nombre}* 🎉\n\n¿En que puedo ayudarte hoy?\n\nPuedo mostrarte nuestro 📋 *menu*, ayudarte con un 🛒 *pedido*, o responder tus preguntas.`;
   }
 
-  static async generarMenuHTML(negocio) {
-    const Producto = require('../models/producto');
-    const productos = await Producto.list(negocio.id, { activo: true });
-    
-    if (!productos.length) {
-      return '¡Hola! Aún no tenemos productos disponibles. Contáctanos directamente para hacer tu pedido.';
-    }
+  static async generarMenu(negocioId) {
+    try {
+      const result = await db.query(
+        `SELECT nombre, precio, descripcion, categoria FROM productos 
+         WHERE negocio_id = $1 AND activo = true ORDER BY categoria, nombre LIMIT 20`,
+        [negocioId]
+      );
 
-    // Agrupar por categoría
-    const porCategoria = {};
-    for (const p of productos) {
-      const cat = p.categoria || 'General';
-      if (!porCategoria[cat]) porCategoria[cat] = [];
-      porCategoria[cat].push(p);
-    }
-
-    let mensaje = `🍽️ *${negocio.nombre}*\n\n`;
-    
-    for (const [categoria, items] of Object.entries(porCategoria)) {
-      mensaje += `*${categoria}:*\n`;
-      for (const p of items) {
-        const precio = p.precio.toFixed(2);
-        mensaje += `• ${p.nombre} - RD$.${precio}`;
-        if (p.descripcion) mensaje += `\n  ${p.descripcion}`;
-        mensaje += '\n';
+      if (result.rows.length === 0) {
+        return '😕Aún no tenemos productos en el catalogo. ¡Pronto los tendremos!';
       }
-      mensaje += '\n';
-    }
 
-    mensaje += '\n_¿Qué te gustaría pedir?_';
-    return mensaje;
-  }
-
-  static async consultarEstadoPedido(mensaje, negocioId) {
-    const Pedido = require('../models/pedido');
-    
-    // Extraer número de pedido del mensaje
-    const match = mensaje.match(/[A-Z]{3}[0-9]{6}/i);
-    if (match) {
-      const pedido = await Pedido.findByNumero(match[0].toUpperCase(), negocioId);
-      if (pedido) {
-        const estadosEmoji = {
-          'nuevo': '🆕',
-          'confirmado': '✅',
-          'preparando': '👨‍🍳',
-          'listo': '📦',
-          'entregado': '🎉',
-          'cancelado': '❌'
-        };
-        return `Tu pedido *${pedido.numero_pedido}* está: ${estadosEmoji[pedido.estado]} *${pedido.estado.toUpperCase()}*`;
+      let mensaje = '📋 *MENU* 📋\n\n';
+      let categoriaActual = '';
+      
+      for (const p of result.rows) {
+        if (p.categoria !== categoriaActual) {
+          categoriaActual = p.categoria;
+          mensaje += `\n🏷️ *${this.capitalize(categoriaActual)}*\n`;
+        }
+        mensaje += `• ${p.nombre}: $${p.precio}\n`;
       }
-    }
 
-    return 'Para consultar tu pedido, por favor dime el número de pedido (ej: ORD000001)';
+      mensaje += '\n💬 ¿Queres pedir algo? Solo decilo y te lo ago!';
+      
+      return mensaje;
+    } catch (err) {
+      console.error('Error generando menu:', err);
+      return '😕Tuve un problema cargando el menu.';
+    }
   }
 
-  static generarHorarioRespuesta(negocio) {
-    const horario = negocio.horario_atencion || {};
-    const dias = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
-    const diasEsp = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-    
-    let mensaje = '🕐 *Horario de atención:*\n\n';
-    
-    for (let i = 0; i < dias.length; i++) {
-      const h = horario[dias[i]];
-      if (h?.activo) {
-        mensaje += `${diasEsp[i]}: ${h.inicio} - ${h.fin}\n`;
-      } else {
-        mensaje += `${diasEsp[i]}: Cerrado\n`;
+  static generarHorario(negocio) {
+    const hora = negocio.horario_apertura || '9:00 AM';
+    const horaCierra = negocio.horario_cierre || '9:00 PM';
+    return `🕐 *Horarios* 🕐\n\n*${negocio.nombre}*\n📍 ${hora} a ${horaCierra}\n\n¿Necesitas algo mas?`;
+  }
+
+  static generarUbicacion(negocio) {
+    let respuesta = '📍 *Ubicacion* 📍\n\n';
+    respuesta += `*${negocio.nombre}*\n`;
+    if (negocio.direccion) respuesta += `📌 ${negocio.direccion}\n`;
+    if (negocio.ciudad) respuesta += `🏙️ ${negocio.ciudad}\n`;
+    return respuesta + '\n¿Necesitas mas ayuda?';
+  }
+
+  static async consultarEstadoPedido(msg, negocioId) {
+    try {
+      const result = await db.query(
+        `SELECT id, estado, created_at FROM pedidos 
+         WHERE negocio_id = $1 ORDER BY created_at DESC LIMIT 3`,
+        [negocioId]
+      );
+
+      if (result.rows.length === 0) {
+        return '😕No tenes pedidos recientes. ¿Queres hacer uno nuevo?';
       }
+
+      let mensaje = '📦 *Tus pedidos recientes:*\n\n';
+      for (const p of result.rows) {
+        const estado = this.getEmojiEstado(p.estado);
+        mensaje += `${estado} *${p.estado}*\n`;
+      }
+      return mensaje;
+    } catch (err) {
+      return '😕No pude consultar tus pedidos.';
     }
-
-    return mensaje;
   }
 
-  static async generarSaludo(negocio, cliente) {
-    const nombre = cliente?.nombre || 'cliente';
-    return `¡Hola ${nombre}! 👋\n\nBienvenido a *${negocio.nombre}*\n\n¿En qué puedo ayudarte hoy?`;
-  }
-
-  static async procesarConfirmacion(mensaje, negocioId) {
-    return 'Entendido. Tu pedido ha sido confirmado. Te notifyaremos cuando esté listo. 👍';
-  }
-
-  static construirPrompt(mensaje, contexto) {
-    const { negocio, cliente, conversacion } = contexto;
-    
-    return `Eres el asistente de WhatsApp de ${negocio.nombre}.
-Tu personalidad: ${negocio.personalidad_bot || 'Amable y servicial'}
-
-Cliente: ${cliente?.nombre || 'Nuevo cliente'}
-Historial reciente: ${conversacion?.ultimo_mensaje || 'Sin historial'}
-
-Cliente dice: "${mensaje}"
-
-Responde de manera natural y concisa. Si no entiendes, pide claridad.`;
-  }
-
-  static async procesarClaude(mensaje, contexto) {
-    const prompt = this.construirPrompt(mensaje, contexto);
-    
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': config.cloudAI.apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: config.cloudAI.model,
-        max_tokens: 300,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-
-    const data = await response.json();
-    
-    return {
-      nivel: 4,
-      tipo: 'ia_cloud',
-      respuesta: data.content?.[0]?.text || 'No pude generar una respuesta',
-      modelo: config.cloudAI.model
+  static generarRespuestaPorTipo(tipo, negocio) {
+    const respuestas = {
+      'hacer_pedido': `🛒 ¡Perfecto! Decime que productos queres y cuanto.\n\nTambien podes ver nuestro 📋 *menu* primero.`,
+      'domicilio': `🚚 ¡Perfecto!Tenemos delivery.\n\n📍 Indicanos tu direccion y te cotizamos el envio.\n\n¿Que productos queres?`,
+      'recoger': `🏃 ¡Perfecto!Podes pasar a recoger.\n\n⏱️ Tiempo estimado: 15-25 minutos.\n\n¿Que productos queres?`,
+      'pago': `💳 *Medios de pago aceptados:*\n\n• Efectivo\n• Transferencia\n\n¿Tenes alguna preferencia?`,
+      'agradecimiento': `😊 ¡De nada! Estamos para ayudarte.\n\n¿Necesitas algo mas?`,
     };
+    return respuestas[tipo] || '¡Entendido! ¿En que mas puedo ayudarte?';
   }
 
-  static async procesarOpenAI(mensaje, contexto) {
-    const prompt = this.construirPrompt(mensaje, contexto);
-    
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.cloudAI.apiKey}`
-      },
-      body: JSON.stringify({
-        model: config.cloudAI.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 300
-      })
-    });
+  static generarNoEntiendo(contexto) {
+    return `😕 No entendi bien. ¿Podrias repetirlo?\n\n*Te puedo ayudar con:*\n• 📋 Ver nuestro menu\n• 🛒 Hacer un pedido\n• 📦 Consultar estado\n\n¿Qué necesitas?`;
+  }
 
-    const data = await response.json();
-    
-    return {
-      nivel: 4,
-      tipo: 'ia_cloud',
-      respuesta: data.choices?.[0]?.message?.content || 'No pude generar una respuesta',
-      modelo: config.cloudAI.model
-    };
+  static getEmojiEstado(estado) {
+    const estados = { 'pendiente': '⏳', 'confirmado': '✅', 'preparando': '👨‍🍳', 'listo': '🎉', 'entregado': '📦', 'cancelado': '❌' };
+    return estados[estado?.toLowerCase()] || '📦';
+  }
+
+  static capitalize(texto) {
+    return texto?.charAt(0).toUpperCase() + texto?.slice(1) || '';
   }
 }
 
