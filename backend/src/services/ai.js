@@ -270,7 +270,7 @@ class AIService {
       mensaje += `*${categoria}:*\n`;
       for (const p of items) {
         const precio = p.precio.toFixed(2);
-        mensaje += `• ${p.nombre} - S/.${precio}`;
+        mensaje += `• ${p.nombre} - RD$.${precio}`;
         if (p.descripcion) mensaje += `\n  ${p.descripcion}`;
         mensaje += '\n';
       }
@@ -336,7 +336,7 @@ class AIService {
     const { negocio, cliente, conversacion } = contexto;
     
     return `Eres el asistente de WhatsApp de ${negocio.nombre}.
-Tu personalidad: ${negocio.personalid_ad_bot || 'Amable y servicial'}
+Tu personalidad: ${negocio.personalidad_bot || 'Amable y servicial'}
 
 Cliente: ${cliente?.nombre || 'Nuevo cliente'}
 Historial reciente: ${conversacion?.ultimo_mensaje || 'Sin historial'}

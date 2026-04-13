@@ -22,8 +22,14 @@ module.exports = {
 
   // JWT
   jwt: {
-    secret: process.env.JWT_SECRET || 'otto-secret-key-change-in-production',
+    secret: process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'otto-dev-secret'),
     expiresIn: '7d',
+  },
+
+  // Security
+  security: {
+    corsOrigins: (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
+    onboardingSecret: process.env.ONBOARDING_SECRET || '',
   },
 
   // WhatsApp - 360dialog

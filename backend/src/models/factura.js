@@ -23,6 +23,24 @@ class Factura {
     return result.rows[0];
   }
 
+  static async createFromPedido(negocioId, pedidoId) {
+    const pedido = await db.query(`SELECT p.*, c.nombre as cliente_nombre, c.numero_whatsapp as cliente_telefono FROM pedidos p LEFT JOIN clientes c ON p.cliente_id = c.id WHERE p.id = $1 AND p.negocio_id = $2`, [pedidoId, negocioId]);
+    if (!pedido.rows[0]) throw new Error('Pedido no encontrado');
+    const p = pedido.rows[0];
+
+    const numero = await db.query(`SELECT COALESCE(MAX(CAST(SUBSTRING(numero_correlativo FROM 4 FOR 10) AS INTEGER)), 0) + 1 as next FROM facturas WHERE negocio_id = $1`, [negocioId]);
+    const next = String(numero.rows[0].next).padStart(7, '0');
+    const numero_correlativo = `FAC${next}`;
+
+    const result = await db.query(
+      `INSERT INTO facturas (numero_correlativo, pedido_id, negocio_id, cliente_id, subtotal, igv, total, fecha_emision, tipo_documento, estado_pago)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), 'recibo', 'pendiente')
+       RETURNING *`,
+      [numero_correlativo, pedidoId, negocioId, p.cliente_id, p.subtotal, p.itbis || 0, p.total]
+    );
+    return result.rows[0];
+  }
+
   static async findById(id, negocioId) {
     const result = await db.query(
       `SELECT f.*, c.nombre as cliente_nombre, c.numero_whatsapp as cliente_telefono

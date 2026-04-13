@@ -66,14 +66,14 @@ class AgenteDocumentos {
       const subtotal = cantidad * precio;
       
       texto += `${cantidad}x ${nombre}\n`;
-      texto += `   S/.${precio.toFixed(2)} c/u  S/.${subtotal.toFixed(2)}\n`;
+      texto += `   RD$${precio.toFixed(2)} c/u  RD$${subtotal.toFixed(2)}\n`;
     }
 
     texto += `\n─────────────────────────────────\n`;
-    texto += `Subtotal:    S/.${pedido.subtotal.toFixed(2)}\n`;
-    texto += `IGV (18%):   S/.${pedido.igv.toFixed(2)}\n`;
+    texto += `Subtotal:    RD$${pedido.subtotal.toFixed(2)}\n`;
+    texto += `ITBIS (18%):   RD$${pedido.igv.toFixed(2)}\n`;
     texto += `─────────────────────────────\n`;
-    texto += `*TOTAL:      S/.${pedido.total.toFixed(2)}*\n`;
+    texto += `*TOTAL:      RD$${pedido.total.toFixed(2)}*\n`;
     texto += `═══════════════════════════════\n\n`;
     
     if (negocio.direccion) {
@@ -117,14 +117,14 @@ class AgenteDocumentos {
 
     for (const p of productos) {
       texto += `${p.cantidad}x ${p.nombre}\n`;
-      texto += `   S/.${p.precio.toFixed(2)} c/u  S/.${(p.cantidad * p.precio).toFixed(2)}\n`;
+      texto += `   RD$${p.precio.toFixed(2)} c/u  RD$${(p.cantidad * p.precio).toFixed(2)}\n`;
     }
 
     texto += `\n─────────────────────────────────────\n`;
-    texto += `Subtotal:    S/.${subtotal.toFixed(2)}\n`;
-    texto += `IGV (18%):   S/.${igv.toFixed(2)}\n`;
+    texto += `Subtotal:    RD$${subtotal.toFixed(2)}\n`;
+    texto += `ITBIS (18%):   RD$${igv.toFixed(2)}\n`;
     texto += `─────────────────────────────────────\n`;
-    texto += `*TOTAL:      S/.${total.toFixed(2)}*\n`;
+    texto += `*TOTAL:      RD$${total.toFixed(2)}*\n`;
     texto += `═══════════════════════════════════════\n\n`;
     
     texto += `_Esta cotización tiene validez de ${validez} días_\n`;

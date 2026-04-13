@@ -153,7 +153,7 @@ class Producto {
   // Get products with low stock
   static async getLowStock(negocioId) {
     const result = await db.query(
-      `SELECT id, nombre, stock_actual, stock_minimo
+      `SELECT id, nombre, stock_actual as stock, stock_minimo
        FROM productos 
        WHERE negocio_id = $1 AND stock_actual <= stock_minimo AND activo = true
        ORDER BY (stock_actual - stock_minimo) ASC`,

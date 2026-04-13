@@ -37,6 +37,18 @@ class Cliente {
     return result.rows[0];
   }
 
+  // Create
+  static async create(negocioId, phone, data = {}) {
+    const { nombre, email } = data;
+    const result = await db.query(
+      `INSERT INTO clientes (negocio_id, numero_whatsapp, nombre, email)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [negocioId, phone, nombre || 'Sin nombre', email || null]
+    );
+    return result.rows[0];
+  }
+
   // Find by phone (per negocio)
   static async findByPhone(phone, negocioId) {
     const result = await db.query(
@@ -153,10 +165,11 @@ class Cliente {
   static async getStats(negocioId) {
     const result = await db.query(
       `SELECT 
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE bloqueado = true) as bloqueados,
-        COUNT(*) FILTER (WHERE deuda_activa > 0) as con_deuda,
-        SUM(deuda_activa) as total_deuda
+        COUNT(*) as total_clientes,
+        COUNT(*) FILTER (WHERE bloqueado = true) as clientes_bloqueados,
+        COUNT(*) FILTER (WHERE deuda_activa > 0) as clientes_con_deuda,
+        COALESCE(SUM(deuda_activa), 0) as total_deuda,
+        COUNT(*) FILTER (WHERE created_at >= date_trunc('month', NOW())) as clientes_nuevos_mes
        FROM clientes WHERE negocio_id = $1`,
       [negocioId]
     );

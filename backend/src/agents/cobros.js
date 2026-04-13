@@ -109,11 +109,11 @@ class AgenteCobros {
   // Generar mensaje para factura vencida
   static generarMensajeVencido(factura, tono) {
     const mensajes = {
-      formal: `Estimado cliente,\n\nLe informamos que la factura *${factura.numero_correlativo}* por S/.${factura.total.toFixed(2)} se encuentra vencida.\n\nPor favor, regularice su pago a la brevedad.\n\nSaludos cordialmente,\n*${factura.negocio_nombre}*`,
+      formal: `Estimado cliente,\n\nLe informamos que la factura *${factura.numero_correlativo}* por RD$${factura.total.toFixed(2)} se encuentra vencida.\n\nPor favor, regularice su pago a la brevedad.\n\nSaludos cordialmente,\n*${factura.negocio_nombre}*`,
       
-      amigable: `Hola 👋\n\nTe recordamos que tienes una factura pendiente de *S/.${factura.total.toFixed(2)}* que ya venció.\n\n¿Podrías coordinar el pago? ¡Gracias! 🙏`,
+      amigable: `Hola 👋\n\nTe recordamos que tienes una factura pendiente de *RD$${factura.total.toFixed(2)}* que ya venció.\n\n¿Podrías coordinar el pago? ¡Gracias! 🙏`,
       
-      urgente: `⚠️ *Recordatorio importante*\n\nTu factura *${factura.numero_correlativo}* por S/.${factura.total.toFixed(2)} está vencida.\n\nPor favor, contactanos lo antes posible para regularizar.`
+      urgente: `⚠️ *Recordatorio importante*\n\nTu factura *${factura.numero_correlativo}* por RD$${factura.total.toFixed(2)} está vencida.\n\nPor favor, contactanos lo antes posible para regularizar.`
     };
 
     return mensajes[tono] || mensajes.amigable;
@@ -121,7 +121,7 @@ class AgenteCobros {
 
   // Generar mensaje para factura por vencer
   static generarMensajePorVencer(factura, diasRestantes) {
-    return `📢 *Recordatorio*\n\nTu factura *${factura.numero_correlativo}* vence en *${diasRestantes} días*.\n\nMonto: S/.${factura.total.toFixed(2)}\n\n¿Necesitas coordinar el pago?`;
+    return `📢 *Recordatorio*\n\nTu factura *${factura.numero_correlativo}* vence en *${diasRestantes} días*.\n\nMonto: RD$${factura.total.toFixed(2)}\n\n¿Necesitas coordinar el pago?`;
   }
 
   // Calcular días entre dos fechas

@@ -167,7 +167,7 @@ Nivel 4 (3%) - IA cloud (Claude): $ Real
 ### Pendientes de Implementar:
 
 1. **Stripe Connect** - Pagos para afiliados
-2. **Facturación electrónica** - Integración Sunat
+2. **Facturación electrónica** - Integración DGII (República Dominicana)
 3. **Whisper local** - Voz a texto
 4. **Tesseract OCR** - Lectura de imágenes
 5. **Dashboard completo** - Frontend de gestión

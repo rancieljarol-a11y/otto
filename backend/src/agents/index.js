@@ -9,9 +9,10 @@ const WhatsAppService = require('../services/whatsapp');
 
 class OrquestadorAgentes {
   // Procesar mensaje entrante de WhatsApp
-  static async procesarMensaje(mensaje, numeroEntrante) {
+  static async procesarMensaje(mensaje, numeroEntrante, negocioIdForzado = null) {
     console.log(`\n📨 MENSAJE: "${mensaje.substring(0, 60)}..."`);
     console.log(`👤 De: ${numeroEntrante}`);
+    if (negocioIdForzado) console.log(`🏢 Negocio forzado: ${negocioIdForzado}`);
 
     try {
       // 1. PRIMERO: Verificar anti-spam (siempre corriendo)
@@ -22,7 +23,7 @@ class OrquestadorAgentes {
       }
 
       // 2. SEGUNDO: Agente Recepcionista identifica negocio, rol, y procesa
-      const resultadoRecepcionista = await AgenteRecepcionista.procesar(mensaje, numeroEntrante);
+      const resultadoRecepcionista = await AgenteRecepcionista.procesar(mensaje, numeroEntrante, negocioIdForzado);
       
       if (!resultadoRecepcionista.negocio_id) {
         return { error: 'negocio_no_encontrado', ...resultadoRecepcionista };

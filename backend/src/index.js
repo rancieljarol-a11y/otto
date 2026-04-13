@@ -12,10 +12,15 @@ const path = require('path');
 const app = express();
 
 // Middleware
+const allowedOrigins = config.security.corsOrigins;
 app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: (origin, callback) => {
+    if (!origin || config.nodeEnv === 'development') return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('CORS blocked'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-dev-token', 'x-negocio-id', 'x-onboarding-secret']
 }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -62,6 +67,10 @@ app.use(errorHandler);
 // Start server
 const start = async () => {
   try {
+    if (config.nodeEnv === 'production' && !config.jwt.secret) {
+      throw new Error('JWT_SECRET es obligatorio en producción');
+    }
+
     // Initialize database
     await db.initialize();
     console.log('✅ Database initialized');

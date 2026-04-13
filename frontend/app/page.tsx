@@ -1,19 +1,10 @@
+'use client'
+
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { 
-  MessageCircle, 
-  ShoppingCart, 
-  FileText, 
-  Users, 
-  BarChart3, 
-  Zap,
-  Shield,
-  Globe
-} from 'lucide-react'
+import { MessageSquare, ShoppingCart, FileText, Users, BarChart3, Globe } from 'lucide-react'
 
-export default function Home() {
+export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* Header */}
@@ -31,8 +22,12 @@ export default function Home() {
             <Link href="#about" className="text-sm font-medium hover:text-primary">Nosotros</Link>
           </nav>
           <div className="flex items-center gap-2">
-            <Button variant="ghost">Iniciar sesión</Button>
-            <Button>Comenzar gratis</Button>
+            <Link href="/login">
+              <Button variant="ghost">Iniciar sesión</Button>
+            </Link>
+            <Link href="/onboarding">
+              <Button>Comenzar gratis</Button>
+            </Link>
           </div>
         </div>
       </header>
@@ -40,24 +35,22 @@ export default function Home() {
       {/* Hero */}
       <section className="py-20 md:py-32">
         <div className="container mx-auto px-4 text-center">
-          <Badge variant="secondary" className="mb-4">
+          <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80 mb-4">
             🚀 Versión 1.0 - SaaS multi-tenant
-          </Badge>
+          </div>
           <h1 className="text-4xl md:text-6xl font-bold mb-6 tracking-tight">
-            Tu negocio en{' '}
-            <span className="text-primary">WhatsApp</span>
+            Tu negocio en <span className="text-primary">WhatsApp</span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Convierte WhatsApp en el sistema operativo completo de tu negocio. 
-            Catálogo, pedidos, facturas y más, todo en un solo lugar.
+            Convierte WhatsApp en el sistema operativo completo de tu negocio. Catálogo, pedidos, facturas y más, todo en un solo lugar.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="text-lg">
-              Crear mi negocio gratis
-            </Button>
-            <Button size="lg" variant="outline" className="text-lg">
-              Ver demo
-            </Button>
+            <Link href="/onboarding">
+              <Button size="lg" className="text-lg">Crear mi negocio gratis</Button>
+            </Link>
+            <Link href="/dashboard">
+              <Button size="lg" variant="outline" className="text-lg">Ver demo</Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -67,36 +60,22 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12">Todo lo que necesitas</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <FeatureCard
-              icon={<MessageCircle className="w-8 h-8" />}
-              title="WhatsApp Business"
-              description="Tu WhatsApp funcionando como sistema completo de atención al cliente"
-            />
-            <FeatureCard
-              icon={<ShoppingCart className="w-8 h-8" />}
-              title="Catálogo Digital"
-              description="Comparte tu menú o productos con fotos, precios y personalizaciones"
-            />
-            <FeatureCard
-              icon={<FileText className="w-8 h-8" />}
-              title="Facturación"
-              description="Genera facturas electrónicas automáticas con Sunat (Perú)"
-            />
-            <FeatureCard
-              icon={<Users className="w-8 h-8" />}
-              title="CRM Completo"
-              description="Historial de clientes, preferencias y deuda activa"
-            />
-            <FeatureCard
-              icon={<BarChart3 className="w-8 h-8" />}
-              title="Analytics"
-              description="Estadísticas en tiempo real de ventas, productos y clientes"
-            />
-            <FeatureCard
-              icon={<Globe className="w-8 h-8" />}
-              title="Multi-idioma"
-              description="Soporte para español, inglés y más idiomas"
-            />
+            {[
+              { icon: MessageSquare, title: 'WhatsApp Business', desc: 'Tu WhatsApp funcionando como sistema completo de atención al cliente' },
+              { icon: ShoppingCart, title: 'Catálogo Digital', desc: 'Comparte tu menú o productos con fotos, precios y personalizaciones' },
+              { icon: FileText, title: 'Facturación', desc: 'Genera facturas electrónicas automáticas con DGII' },
+              { icon: Users, title: 'CRM Completo', desc: 'Historial de clientes, preferencias y deuda activa' },
+              { icon: BarChart3, title: 'Analytics', desc: 'Estadísticas en tiempo real de ventas, productos y clientes' },
+              { icon: Globe, title: 'Multi-idioma', desc: 'Soporte para español, inglés y más idiomas' },
+            ].map((feature, i) => (
+              <div key={i} className="rounded-lg bg-card text-card-foreground shadow-sm border-2 hover:border-primary/50 transition-colors p-6">
+                <div className="text-primary mb-2">
+                  <feature.icon className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-semibold">{feature.title}</h3>
+                <p className="text-muted-foreground">{feature.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -106,45 +85,26 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12">Precios simples</h2>
           <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <PricingCard
-              title="Founder"
-              price="S/.29.90"
-              description="Para negocios que están comenzando"
-              features={[
-                'Catálogo ilimitado',
-                'Pedidos por WhatsApp',
-                '5 clientes activos',
-                'Reportes básicos',
-                'Soporte por email'
-              ]}
-              highlighted
-            />
-            <PricingCard
-              title="Pro"
-              price="S/.99.90"
-              description="Para negocios en crecimiento"
-              features={[
-                'Todo de Founder',
-                'Clientes ilimitados',
-                'Facturación electrónica',
-                'Análisis avanzados',
-                'Múltiples empleados',
-                'API access'
-              ]}
-            />
-            <PricingCard
-              title="Enterprise"
-              price="S/.249.90"
-              description="Para cadenas y franchises"
-              features={[
-                'Todo de Pro',
-                'Múltiendas',
-                'White-label',
-                'SLA garantizado',
-                'Soporte 24/7',
-                'Implementación dedicada'
-              ]}
-            />
+            {[
+              { name: 'Founder', price: 'RD$29.90', features: ['Catálogo ilimitado', 'Pedidos por WhatsApp', '5 clientes activos', 'Reportes básicos'], highlight: true },
+              { name: 'Pro', price: 'RD$99.90', features: ['Todo de Founder', 'Clientes ilimitados', 'Facturación electrónica', 'Análisis avanzados', 'Múltiples empleados', 'API access'] },
+              { name: 'Enterprise', price: 'RD$249.90', features: ['Todo de Pro', 'Múltiendas', 'White-label', 'SLA garantizado', 'Soporte 24/7'] },
+            ].map((plan, i) => (
+              <div key={i} className={`rounded-lg border bg-card text-card-foreground shadow-sm p-6 ${plan.highlight ? 'border-primary border-2' : ''}`}>
+                <h3 className="text-2xl font-semibold">{plan.name}</h3>
+                <p className="text-sm text-muted-foreground mb-4">{plan.price}/mes</p>
+                <ul className="space-y-2 mb-6">
+                  {plan.features.map((f, j) => (
+                    <li key={j} className="flex items-center gap-2 text-sm">
+                      <span className="text-primary">✓</span> {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/onboarding">
+                  <Button className="w-full" variant={plan.highlight ? 'default' : 'outline'}>Empezar</Button>
+                </Link>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -159,66 +119,10 @@ export default function Home() {
               </div>
               <span className="font-bold">OttO</span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              © 2024 OttO. Todos los derechos reservados.
-            </p>
+            <p className="text-sm text-muted-foreground">© 2024 OttO. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>
     </div>
-  )
-}
-
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
-  return (
-    <Card className="border-2 hover:border-primary/50 transition-colors">
-      <CardHeader>
-        <div className="text-primary mb-2">{icon}</div>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-muted-foreground">{description}</p>
-      </CardContent>
-    </Card>
-  )
-}
-
-function PricingCard({ 
-  title, 
-  price, 
-  description, 
-  features,
-  highlighted = false
-}: { 
-  title: string; 
-  price: string; 
-  description: string; 
-  features: string[];
-  highlighted?: boolean;
-}) {
-  return (
-    <Card className={highlighted ? 'border-primary border-2' : ''}>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-6">
-          <span className="text-3xl font-bold">{price}</span>
-          <span className="text-muted-foreground">/mes</span>
-        </div>
-        <ul className="space-y-2">
-          {features.map((feature, i) => (
-            <li key={i} className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-primary" />
-              <span className="text-sm">{feature}</span>
-            </li>
-          ))}
-        </ul>
-        <Button className="w-full mt-6" variant={highlighted ? 'default' : 'outline'}>
-          Empezar
-        </Button>
-      </CardContent>
-    </Card>
   )
 }

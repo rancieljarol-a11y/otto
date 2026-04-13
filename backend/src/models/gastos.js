@@ -18,7 +18,7 @@ class Gastos {
 
   static async list(negocioId, filters = {}) {
     const { tipo, desde, hasta, limit = 50, offset = 0 } = filters;
-    
+
     let query = 'SELECT * FROM gastos_negocio WHERE negocio_id = $1';
     const params = [negocioId];
     let paramCount = 1;
@@ -41,32 +41,37 @@ class Gastos {
       params.push(hasta);
     }
 
-    query += ` ORDER BY fecha DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
-    params.push(limit, offset);
+    paramCount++;
+    query += ` ORDER BY fecha DESC LIMIT $${paramCount}`;
+    params.push(limit);
+
+    if (offset) {
+      paramCount++;
+      query += ` OFFSET $${paramCount}`;
+      params.push(offset);
+    }
 
     const result = await db.query(query, params);
     return result.rows;
   }
 
-  static async getTotal(negocioId, desde, hasta) {
-    let query = 'SELECT SUM(monto) as total FROM gastos_negocio WHERE negocio_id = $1';
-    const params = [negocioId];
-    let paramCount = 1;
+  static async getStats(negocioId, desde, hasta) {
+    const ahora = new Date();
+    const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString().split('T')[0];
+    const inicioMesAnterior = new Date(ahora.getFullYear(), ahora.getMonth() - 1, 1).toISOString().split('T')[0];
+    const finMesAnterior = new Date(ahora.getFullYear(), ahora.getMonth(), 0).toISOString().split('T')[0];
 
-    if (desde) {
-      paramCount++;
-      query += ` AND fecha >= $${paramCount}`;
-      params.push(desde);
-    }
+    const [totalResult, mesActual, mesAnterior] = await Promise.all([
+      db.query(`SELECT COALESCE(SUM(monto), 0) as total FROM gastos_negocio WHERE negocio_id = $1`, [negocioId]),
+      db.query(`SELECT COALESCE(SUM(monto), 0) as total FROM gastos_negocio WHERE negocio_id = $1 AND fecha >= $2`, [negocioId, inicioMes]),
+      db.query(`SELECT COALESCE(SUM(monto), 0) as total FROM gastos_negocio WHERE negocio_id = $1 AND fecha >= $2 AND fecha <= $3`, [negocioId, inicioMesAnterior, finMesAnterior]),
+    ]);
 
-    if (hasta) {
-      paramCount++;
-      query += ` AND fecha <= $${paramCount}`;
-      params.push(hasta);
-    }
-
-    const result = await db.query(query, params);
-    return result.rows[0];
+    return {
+      total: parseFloat(totalResult.rows[0].total),
+      mes_actual: parseFloat(mesActual.rows[0].total),
+      mes_anterior: parseFloat(mesAnterior.rows[0].total),
+    };
   }
 
   static async update(id, negocioId, data) {
@@ -88,7 +93,7 @@ class Gastos {
 
     values.push(id, negocioId);
     const result = await db.query(
-      `UPDATE gastos_negocio SET ${fields.join(', ')} 
+      `UPDATE gastos_negocio SET ${fields.join(', ')}
        WHERE id = $${paramCount} AND negocio_id = $${paramCount + 1}
        RETURNING *`,
       values

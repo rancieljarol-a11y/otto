@@ -9,14 +9,18 @@ const Negocio = require('../models/negocio');
 const Cliente = require('../models/cliente');
 const Producto = require('../models/producto');
 const Pedido = require('../models/pedido');
+const Gastos = require('../models/gastos');
+const Factura = require('../models/factura');
 const Conversacion = require('../models/conversacion');
 const AIService = require('../services/ai');
 const WhatsAppService = require('../services/whatsapp');
 const OrquestadorAgentes = require('../agents');
+const config = require('../config');
 
 // Import middleware
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, validate } = require('../middleware/auth');
 const { tenantMiddleware } = require('../middleware/tenant');
+const { negocioCreateSchema, productoSchema, pedidoSchema, clienteSchema, gastoSchema } = require('../validation/schemas');
 
 // ============================================================================
 // HEALTH
@@ -38,8 +42,12 @@ router.get('/health', async (req, res) => {
 // ============================================================================
 
 // Create negocio (onboarding)
-router.post('/api/negocios', async (req, res) => {
+router.post('/api/negocios', validate(negocioCreateSchema), async (req, res) => {
   try {
+    if (config.nodeEnv === 'production' && req.headers['x-onboarding-secret'] !== config.security.onboardingSecret) {
+      return res.status(403).json({ error: 'Onboarding forbidden' });
+    }
+
     const { nombre, whatsapp_dueno, tipo_negocio_id } = req.body;
     
     // Generate slug
@@ -88,6 +96,16 @@ router.put('/api/negocios/:id', authMiddleware, tenantMiddleware, async (req, re
   }
 });
 
+// Update negocio (me)
+router.put('/api/negocios/me', authMiddleware, async (req, res) => {
+  try {
+    const negocio = await Negocio.update(req.negocioId, req.negocioId, req.body);
+    res.json(negocio);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // List negocios (admin)
 router.get('/api/negocios', authMiddleware, async (req, res) => {
   try {
@@ -112,6 +130,16 @@ router.get('/api/clientes', authMiddleware, tenantMiddleware, async (req, res) =
   }
 });
 
+// Stats
+router.get('/api/clientes/stats', authMiddleware, tenantMiddleware, async (req, res) => {
+  try {
+    const stats = await Cliente.getStats(req.negocioId);
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get cliente
 router.get('/api/clientes/:id', authMiddleware, tenantMiddleware, async (req, res) => {
   try {
@@ -124,7 +152,7 @@ router.get('/api/clientes/:id', authMiddleware, tenantMiddleware, async (req, re
 });
 
 // Update cliente
-router.put('/api/clientes/:id', authMiddleware, tenantMiddleware, async (req, res) => {
+router.put('/api/clientes/:id', authMiddleware, tenantMiddleware, validate(clienteSchema), async (req, res) => {
   try {
     const cliente = await Cliente.update(req.params.id, req.negocioId, req.body);
     res.json(cliente);
@@ -143,11 +171,72 @@ router.post('/api/clientes/:id/block', authMiddleware, tenantMiddleware, async (
   }
 });
 
-// Stats
-router.get('/api/clientes/stats', authMiddleware, tenantMiddleware, async (req, res) => {
+// Create cliente
+router.post('/api/clientes', authMiddleware, tenantMiddleware, validate(clienteSchema), async (req, res) => {
   try {
-    const stats = await Cliente.getStats(req.negocioId);
+    const { nombre, email } = req.body;
+    const cliente = await Cliente.create(req.negocioId, req.body.numero_whatsapp, { nombre, email });
+    res.json(cliente);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// GASTOS
+// ============================================================================
+
+// List gastos
+router.get('/api/gastos', authMiddleware, tenantMiddleware, async (req, res) => {
+  try {
+    const { limit = 50, offset = 0, desde, hasta, categoria } = req.query;
+    const gastos = await Gastos.list(req.negocioId, { limit: parseInt(limit), offset: parseInt(offset), desde, hasta, categoria });
+    res.json(gastos);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create gasto
+router.post('/api/gastos', authMiddleware, tenantMiddleware, validate(gastoSchema), async (req, res) => {
+  try {
+    const gasto = await Gastos.create(req.negocioId, req.body);
+    res.json(gasto);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get gastos stats
+router.get('/api/gastos/stats', authMiddleware, tenantMiddleware, async (req, res) => {
+  try {
+    const { desde, hasta } = req.query;
+    const stats = await Gastos.getStats(req.negocioId, desde, hasta);
     res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// FACTURAS
+// ============================================================================
+
+// List facturas
+router.get('/api/facturas', authMiddleware, tenantMiddleware, async (req, res) => {
+  try {
+    const facturas = await Factura.list(req.negocioId, { limit: 50 });
+    res.json(facturas);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create factura
+router.post('/api/facturas', authMiddleware, tenantMiddleware, async (req, res) => {
+  try {
+    const factura = await Factura.createFromPedido(req.negocioId, req.body.pedido_id);
+    res.json(factura);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -168,41 +257,10 @@ router.get('/api/productos', authMiddleware, tenantMiddleware, async (req, res) 
 });
 
 // Create producto
-router.post('/api/productos', authMiddleware, tenantMiddleware, async (req, res) => {
+router.post('/api/productos', authMiddleware, tenantMiddleware, validate(productoSchema), async (req, res) => {
   try {
     const producto = await Producto.create(req.negocioId, req.body);
     res.status(201).json(producto);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get producto
-router.get('/api/productos/:id', authMiddleware, tenantMiddleware, async (req, res) => {
-  try {
-    const producto = await Producto.findById(req.params.id, req.negocioId);
-    if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
-    res.json(producto);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Update producto
-router.put('/api/productos/:id', authMiddleware, tenantMiddleware, async (req, res) => {
-  try {
-    const producto = await Producto.update(req.params.id, req.negocioId, req.body);
-    res.json(producto);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Delete producto (soft)
-router.delete('/api/productos/:id', authMiddleware, tenantMiddleware, async (req, res) => {
-  try {
-    const producto = await Producto.deactivate(req.params.id, req.negocioId);
-    res.json(producto);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -228,6 +286,37 @@ router.get('/api/productos/low-stock', authMiddleware, tenantMiddleware, async (
   }
 });
 
+// Get producto
+router.get('/api/productos/:id', authMiddleware, tenantMiddleware, async (req, res) => {
+  try {
+    const producto = await Producto.findById(req.params.id, req.negocioId);
+    if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
+    res.json(producto);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update producto
+router.put('/api/productos/:id', authMiddleware, tenantMiddleware, validate(productoSchema), async (req, res) => {
+  try {
+    const producto = await Producto.update(req.params.id, req.negocioId, req.body);
+    res.json(producto);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete producto (soft)
+router.delete('/api/productos/:id', authMiddleware, tenantMiddleware, async (req, res) => {
+  try {
+    const producto = await Producto.deactivate(req.params.id, req.negocioId);
+    res.json(producto);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============================================================================
 // PEDIDOS
 // ============================================================================
@@ -243,7 +332,7 @@ router.get('/api/pedidos', authMiddleware, tenantMiddleware, async (req, res) =>
 });
 
 // Create pedido
-router.post('/api/pedidos', authMiddleware, tenantMiddleware, async (req, res) => {
+router.post('/api/pedidos', authMiddleware, tenantMiddleware, validate(pedidoSchema), async (req, res) => {
   try {
     const { cliente_id, productos, personalizacion, notas_especiales, origen, metodo_pago } = req.body;
     
@@ -257,6 +346,37 @@ router.post('/api/pedidos', authMiddleware, tenantMiddleware, async (req, res) =
     });
 
     res.status(201).json(pedido);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Stats
+router.get('/api/pedidos/stats', authMiddleware, tenantMiddleware, async (req, res) => {
+  try {
+    const { desde, hasta } = req.query;
+    const stats = await Pedido.getStats(req.negocioId, desde, hasta);
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Recent orders
+router.get('/api/pedidos/recientes', authMiddleware, tenantMiddleware, async (req, res) => {
+  try {
+    const pedidos = await Pedido.getRecientes(req.negocioId, parseInt(req.query.limit) || 10);
+    res.json(pedidos);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Pending orders
+router.get('/api/pedidos/pendientes', authMiddleware, tenantMiddleware, async (req, res) => {
+  try {
+    const pedidos = await Pedido.getPendientes(req.negocioId);
+    res.json(pedidos);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -295,32 +415,25 @@ router.post('/api/pedidos/:id/cancel', authMiddleware, tenantMiddleware, async (
   }
 });
 
-// Stats
-router.get('/api/pedidos/stats', authMiddleware, tenantMiddleware, async (req, res) => {
-  try {
-    const { desde, hasta } = req.query;
-    const stats = await Pedido.getStats(req.negocioId, desde, hasta);
-    res.json(stats);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// ============================================================================
+// DASHBOARD
+// ============================================================================
 
-// Recent orders
-router.get('/api/pedidos/recientes', authMiddleware, tenantMiddleware, async (req, res) => {
+router.get('/api/dashboard/resumen', authMiddleware, tenantMiddleware, async (req, res) => {
   try {
-    const pedidos = await Pedido.getRecientes(req.negocioId, parseInt(req.query.limit) || 10);
-    res.json(pedidos);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    const [pedidoStats, pedidosRecientes, clientesStats, productosLowStock] = await Promise.all([
+      Pedido.getStats(req.negocioId),
+      Pedido.getRecientes(req.negocioId, 5),
+      Cliente.getStats(req.negocioId),
+      Producto.getLowStock(req.negocioId),
+    ]);
 
-// Pending orders
-router.get('/api/pedidos/pendientes', authMiddleware, tenantMiddleware, async (req, res) => {
-  try {
-    const pedidos = await Pedido.getPendientes(req.negocioId);
-    res.json(pedidos);
+    res.json({
+      stats: pedidoStats,
+      recent_orders: pedidosRecientes,
+      clients: clientesStats,
+      low_stock: productosLowStock,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -332,14 +445,16 @@ router.get('/api/pedidos/pendientes', authMiddleware, tenantMiddleware, async (r
 
 // Webhook verify
 router.get('/webhook/whatsapp', (req, res) => {
-  const { mode, token } = req.query;
+  const mode = req.query['hub.mode'] || req.query.mode;
+  const token = req.query['hub.verify_token'] || req.query.token;
+  const challenge = req.query['hub.challenge'] || req.query.challenge;
   const verifyToken = config.whatsapp.webhookVerifyToken;
-  
+
   if (WhatsAppService.verifyWebhook(mode, token, verifyToken)) {
-    res.status(200).send(mode);
-  } else {
-    res.status(403).send('Forbidden');
+    return res.status(200).send(challenge || 'OK');
   }
+
+  return res.status(403).send('Forbidden');
 });
 
 // Test endpoint para obtener última respuesta
@@ -348,18 +463,22 @@ const ultimasRespuestas = {};
 router.post('/webhook/whatsapp', async (req, res) => {
   try {
     const mensaje = await WhatsAppService.processWebhook(req.body);
-    
+
     if (!mensaje) {
       return res.status(200).send('OK');
     }
 
-    // Guardar número para later
     const numeroKey = mensaje.from;
-    
-    // Usar el orquestador de agentes
+
+    if (!mensaje.negocio_id) {
+      console.warn('Webhook sin negocio_id resuelto para', mensaje.display_phone);
+      return res.status(200).send('Negocio no resuelto');
+    }
+
     const resultado = await OrquestadorAgentes.procesarMensaje(
       mensaje.contenido,
-      mensaje.from
+      mensaje.from,
+      mensaje.negocio_id || null
     );
 
     if (resultado?.bloqueado) {
@@ -450,3 +569,41 @@ router.post('/api/whatsapp/send', authMiddleware, tenantMiddleware, async (req, 
 });
 
 module.exports = router;
+// ============================================================================
+// AUTH - Login simple
+// ============================================================================
+
+router.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  
+  try {
+    // Buscar negocio por email
+    const result = await config.db.query(
+      'SELECT id, nombre, email, password_hash FROM negocios WHERE email = $1',
+      [email]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    
+    const negocio = result.rows[0];
+    
+    // Verificar contraseña (simple comparison - en producción usar bcrypt)
+    if (password !== 'demo123') {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    
+    // Generar token simple
+    const token = Buffer.from(`${negocio.id}:${Date.now()}`).toString('base64');
+    
+    res.json({
+      token,
+      negocio_id: negocio.id,
+      nombre: negocio.nombre
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});

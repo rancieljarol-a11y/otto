@@ -10,15 +10,14 @@ class Pedido {
       productos, personalizacion, notas_especiales, origen, metodo_pago, agregado_por
     } = data;
 
-    // Calculate totals
+    // Calcular totales (ITBIS configurable por negocio — por defecto 0)
     let subtotal = 0;
     for (const p of productos) {
       subtotal += (p.precio * p.cantidad);
     }
-    
-    // Total sin impuestos (República Dominicana)
-    // El ITBIS es opcional - el negocio puede activarlo manualmente si lo requiere
-    const total = subtotal;
+    // TODO: Obtener ITBIS del negocio configurado. Por defecto 0 para demo.
+    const itbis = 0; // Math.round(subtotal * 0.18 * 100) / 100;
+    const total = Math.round((subtotal + itbis) * 100) / 100;
 
     // Generate order number
     const negocio = await db.query(
@@ -41,7 +40,7 @@ class Pedido {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *`,
       [numero_pedido, negocioId, clienteId, productos, personalizacion,
-       subtotal, 0, total, notas_especiales, origen || 'whatsapp', metodo_pago, agregado_por]
+       subtotal, itbis, total, notas_especiales, origen || 'whatsapp', metodo_pago, agregado_por]
     );
 
     // Update client's last interaction
@@ -143,9 +142,11 @@ class Pedido {
         break;
     }
 
+    const extraSet = updateFields.length ? `${updateFields.join(', ')}, ` : '';
+
     const result = await db.query(
       `UPDATE pedidos SET 
-        estado = $1, ${updateFields.join(', ')}, updated_at = NOW()
+        estado = $1, ${extraSet}updated_at = NOW()
        WHERE id = $2 AND negocio_id = $3
        RETURNING *`,
       params
@@ -256,14 +257,16 @@ class Pedido {
   static async getVentasPorProducto(negocioId, desde, hasta) {
     const result = await db.query(
       `SELECT 
-        p.nombre,
-        p.productos->>'cantidad' as cantidad_vendida,
-        p.total as total_vendido
-       FROM pedidos p
+        item->>'nombre' as nombre,
+        SUM(COALESCE((item->>'cantidad')::integer, 0)) as cantidad_vendida,
+        SUM(COALESCE((item->>'precio')::numeric, 0) * COALESCE((item->>'cantidad')::integer, 0)) as total_vendido
+       FROM pedidos p,
+            jsonb_array_elements(CASE WHEN jsonb_typeof(p.productos) = 'array' THEN p.productos ELSE '[]'::jsonb END) as item
        WHERE p.negocio_id = $1 
          AND p.fecha_pedido BETWEEN $2 AND $3
          AND p.estado NOT IN ('cancelado')
-       ORDER BY p.total DESC
+       GROUP BY item->>'nombre'
+       ORDER BY total_vendido DESC
        LIMIT 20`,
       [negocioId, desde, hasta]
     );

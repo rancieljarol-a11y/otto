@@ -25,25 +25,35 @@ pool.on('connect', () => {
 });
 
 // Query helper with tenant isolation
-const query = async (text, params, tenantId = null) => {
-  // Set tenant context if provided
-  let finalParams = params;
-  if (tenantId) {
-    // Set the current_negocio_id for RLS
-    await pool.query(`SET app.current_negocio_id = $1`, [tenantId]);
-    // Adjust params to account for the SET if it was parameterized
-    // Note: SET doesn't use parameter placeholders the same way
-  }
-  
+const query = async (text, params = [], tenantId = null) => {
   const start = Date.now();
-  const res = await pool.query(text, finalParams);
-  const duration = Date.now() - start;
-  
-  if (config.nodeEnv === 'development') {
-    console.log('Executed query', { text: text.substring(0, 50), duration, rows: res.rowCount });
+
+  if (!tenantId) {
+    const res = await pool.query(text, params);
+    const duration = Date.now() - start;
+    if (config.nodeEnv === 'development') {
+      console.log('Executed query', { text: text.substring(0, 80), duration, rows: res.rowCount });
+    }
+    return res;
   }
-  
-  return res;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SELECT set_config('app.current_negocio_id', $1, true)`, [String(tenantId)]);
+    const res = await client.query(text, params);
+    await client.query('COMMIT');
+    const duration = Date.now() - start;
+    if (config.nodeEnv === 'development') {
+      console.log('Executed tenant query', { text: text.substring(0, 80), duration, rows: res.rowCount, tenantId });
+    }
+    return res;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 // Transaction helper
@@ -51,11 +61,11 @@ const transaction = async (callback, tenantId = null) => {
   const client = await pool.connect();
   
   try {
+    await client.query('BEGIN');
     if (tenantId) {
-      await client.query(`SET app.current_negocio_id = $1`, [tenantId]);
+      await client.query(`SELECT set_config('app.current_negocio_id', $1, true)`, [String(tenantId)]);
     }
     
-    await client.query('BEGIN');
     const result = await callback(client);
     await client.query('COMMIT');
     return result;

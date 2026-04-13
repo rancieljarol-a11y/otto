@@ -325,7 +325,7 @@ class AgenteRecepcionista {
     const comandos = {
       '/menu': () => this.generarMenu(negocio),
       '/pedidos': () => `Tienes ${args || '10'} pedidos pendientes. Escribe /pedidos lista para ver detalles.`,
-      '/stats': () => '📊 *Estadísticas de hoy:*\n- Pedidos: 15\n- Ventas: S/. 450.00\n- Clientes nuevos: 3',
+      '/stats': () => '📊 *Estadísticas de hoy:*\n- Pedidos: 15\n- Ventas: RD$ 450.00\n- Clientes nuevos: 3',
       '/ayuda': () => this.ayudaAdmin(),
       '/pausar': () => this.pausarNegocio(negocio.id),
       '/temp': () => this.modoTemporada(negocio.id, args)
@@ -433,7 +433,7 @@ class AgenteRecepcionista {
     for (const [categoria, items] of Object.entries(porCategoria)) {
       mensaje += `*${categoria}:*\n`;
       for (const p of items) {
-        mensaje += `• ${p.nombre} - S/.${p.precio.toFixed(2)}`;
+        mensaje += `• ${p.nombre} - RD$${p.precio.toFixed(2)}`;
         if (p.descripcion) mensaje += `\n  ${p.descripcion}`;
         mensaje += '\n';
       }
@@ -462,7 +462,7 @@ class AgenteRecepcionista {
           cancelado: '❌ Cancelado'
         };
         return {
-          texto: `Tu pedido *${pedido.numero_pedido}* está: *${estados[pedido.estado]}*\n\nTotal: S/.${pedido.total.toFixed(2)}`,
+          texto: `Tu pedido *${pedido.numero_pedido}* está: *${estados[pedido.estado]}*\n\nTotal: RD$${pedido.total.toFixed(2)}`,
           debe_rutear: false
         };
       }

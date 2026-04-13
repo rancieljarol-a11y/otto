@@ -64,7 +64,7 @@ class Negocio {
 
     const allowedFields = [
       'nombre', 'logo', 'tipo_negocio_id', 'modulos_activos',
-      'whatsapp_negocio', 'personalid_ad_bot', 'plantilla_factura',
+      'whatsapp_negocio', 'personalidad_bot', 'plantilla_factura',
       'estado', 'horario_atencion', 'mensaje_fuera_horario',
       'acepta_pedidos_fuera_horario', 'zona_horaria', 'idioma'
     ];

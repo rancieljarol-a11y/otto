@@ -88,7 +88,7 @@ class AgenteAdministrador {
       activo: true
     });
 
-    return { texto: `✅ Producto agregado: *${producto.nombre}* - S/.${producto.precio.toFixed(2)}` };
+    return { texto: `✅ Producto agregado: *${producto.nombre}* - RD$${producto.precio.toFixed(2)}` };
   }
 
   static async editarProducto(mensaje, contexto) {
@@ -166,12 +166,12 @@ class AgenteAdministrador {
 
     if (accion === 'ver') {
       const cliente = await Cliente.findById(clienteId, negocio.id);
-      return { texto: `💰 Deuda actual: S/.${(cliente?.deuda_activa || 0).toFixed(2)}` };
+      return { texto: `💰 Deuda actual: RD$${(cliente?.deuda_activa || 0).toFixed(2)}` };
     }
 
     if (accion === 'agregar') {
       await Cliente.addDeuda(clienteId, negocio.id, parseFloat(monto));
-      return { texto: `✅ Deuda agregada: S/.${parseFloat(monto).toFixed(2)}` };
+      return { texto: `✅ Deuda agregada: RD$${parseFloat(monto).toFixed(2)}` };
     }
 
     if (accion === 'pagar') {
@@ -211,10 +211,10 @@ class AgenteAdministrador {
     let reporte = `📊 *REPORTE ${tipo.toUpperCase()}*\n\n`;
     reporte += `*Ventas:*\n`;
     reporte += `• Pedidos: ${stats.total_pedidos || 0}\n`;
-    reporte += `• Ingresos: S/.${ingresos.toFixed(2)}\n`;
-    reporte += `• Promedio: S/.${(stats.promedio_pedido || 0).toFixed(2)}\n\n`;
-    reporte += `*Gastos:* S/.${gastosTotal.toFixed(2)}\n\n`;
-    reporte += `*GANANCIA NETA: S/.${gananciaNeta.toFixed(2)}*`;
+    reporte += `• Ingresos: RD$${ingresos.toFixed(2)}\n`;
+    reporte += `• Promedio: RD$${(stats.promedio_pedido || 0).toFixed(2)}\n\n`;
+    reporte += `*Gastos:* RD$${gastosTotal.toFixed(2)}\n\n`;
+    reporte += `*GANANCIA NETA: RD$${gananciaNeta.toFixed(2)}*`;
 
     return { texto: reporte };
   }
@@ -249,7 +249,7 @@ class AgenteAdministrador {
     for (const p of pedidos) {
       const fecha = new Date(p.fecha_pedido).toLocaleTimeString('es-PE');
       mensaje += `*${p.numero_pedido}* - ${fecha}\n`;
-      mensaje += `  ${p.estado} | S/.${p.total.toFixed(2)}\n`;
+      mensaje += `  ${p.estado} | RD$${p.total.toFixed(2)}\n`;
     }
 
     return { texto: mensaje };
@@ -354,7 +354,7 @@ class AgenteAdministrador {
       fecha: new Date()
     });
 
-    return { texto: `✅ Gasto registrado: S/.${parseFloat(partes[1]).toFixed(2)}` };
+    return { texto: `✅ Gasto registrado: RD$${parseFloat(partes[1]).toFixed(2)}` };
   }
 
   static async actualizarCosto(mensaje, contexto) {

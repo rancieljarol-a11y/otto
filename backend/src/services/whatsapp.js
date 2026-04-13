@@ -187,7 +187,7 @@ class WhatsAppService {
     const entry = payload.entry?.[0];
     const changes = entry?.changes?.[0];
     const value = changes?.value;
-    
+
     if (!value) return null;
 
     const messages = value.messages?.[0];
@@ -195,9 +195,9 @@ class WhatsAppService {
 
     const from = messages.from;
     const tipo = messages.type;
-    
+
     let contenido = '';
-    
+
     if (tipo === 'text') {
       contenido = messages.text?.body;
     } else if (tipo === 'image') {
@@ -208,15 +208,25 @@ class WhatsAppService {
       contenido = `[Documento: ${messages.document?.filename || 'archivo'}]`;
     }
 
-    // Find or determine the negocio
-    // This would require routing based on the phone number
-    
+    const displayPhone = value.metadata?.display_phone_number || value.metadata?.phone_number_id;
+    let negocioId = null;
+
+    if (displayPhone) {
+      const negocio = await db.query(
+        `SELECT id FROM negocios WHERE whatsapp_negocio = $1 OR whatsapp_dueno = $1 LIMIT 1`,
+        [displayPhone]
+      );
+      negocioId = negocio.rows[0]?.id || null;
+    }
+
     return {
       from,
       tipo,
       contenido,
       timestamp: messages.timestamp,
       id: messages.id,
+      negocio_id: negocioId,
+      display_phone: displayPhone,
       metadata: value
     };
   }

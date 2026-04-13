@@ -32,3 +32,8 @@ build/
 
 # WhatsApp auth
 whatsapp-auth/
+.next/
+node_modules/
+.env
+.env.local
+*.log
